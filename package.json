@@ -1,0 +1,17 @@
+{
+  "name": "living-room",
+  "version": "1.0.0",
+  "description": "SMS Living Room App",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node index.js"
+  },
+  "author": "Piyush Kancharlawar",
+  "dependencies": {
+    "express": "^4.16.3",
+    "jsonwebtoken": "^8.3.0",
+    "request": "^2.87.0",
+    "request-promise": "^4.2.2"
+  }
+}
