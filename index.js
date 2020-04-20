@@ -1,6 +1,6 @@
 //include required modules
 const jwt = require('jsonwebtoken');
-const config = require('./config');
+const config = require('./config2');
 const rp = require('request-promise');
 
 const express = require('express');
@@ -15,6 +15,21 @@ const payload = {
     exp: ((new Date()).getTime() + 5000)
 };
 const token = jwt.sign(payload, config.ZoomApiSecret);
+
+const accountSid = config.TwilioSID;
+const authToken = config.TwilioToken;
+const client = require('twilio')(accountSid, authToken);
+const MessagingResponse = require('twilio').twiml.MessagingResponse;
+
+
+app.post('/sms', (req, res) => {
+    const twiml = new MessagingResponse();
+  
+    twiml.message('The Robots are coming! Head for the hills!');
+  
+    res.writeHead(200, {'Content-Type': 'text/xml'});
+    res.end(twiml.toString());
+  });
 
 function makeMeeting(){
   email = 'piyushgk1@gmail.com';
@@ -49,20 +64,15 @@ function makeMeeting(){
     });
 }
 
-// Download the helper library from https://www.twilio.com/docs/node/install
-// Your Account Sid and Auth Token from twilio.com/console
-// DANGER! This is insecure. See http://twil.io/secure
-const accountSid = config.TwilioSID;
-const authToken = config.TwilioToken;
-const client = require('twilio')(accountSid, authToken);
-
-client.messages
-  .create({
-     body: 'This is the ship that made the Kessel Run in fourteen parsecs?',
-     from: '+15109397642',
-     to: '+14049605772'
-   })
-  .then(message => console.log(message.sid));
+function createMessage(to, body) {
+  client.messages
+    .create({
+      body: body,
+      from: '+15109397642',
+      to: to
+    })
+    .then(message => console.log(message.sid));
+}
 
 
-// app.listen(port, () => console.log(`Example app listening on port ${port}!`));
+app.listen(port, () => console.log(`Example app listening on port ${port}!`));
