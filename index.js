@@ -16,10 +16,6 @@ const payload = {
 };
 const token = jwt.sign(payload, config.ZoomApiSecret);
 
-
-//get the form 
-app.get('/', (req,res) => res.send(req.body));
-
 function makeMeeting(){
   email = 'piyushgk1@gmail.com';
   var options = {
@@ -53,5 +49,20 @@ function makeMeeting(){
     });
 }
 
+// Download the helper library from https://www.twilio.com/docs/node/install
+// Your Account Sid and Auth Token from twilio.com/console
+// DANGER! This is insecure. See http://twil.io/secure
+const accountSid = config.TwilioSID;
+const authToken = config.TwilioToken;
+const client = require('twilio')(accountSid, authToken);
 
-app.listen(port, () => console.log(`Example app listening on port ${port}!`));
+client.messages
+  .create({
+     body: 'This is the ship that made the Kessel Run in fourteen parsecs?',
+     from: '+15109397642',
+     to: '+14049605772'
+   })
+  .then(message => console.log(message.sid));
+
+
+// app.listen(port, () => console.log(`Example app listening on port ${port}!`));
