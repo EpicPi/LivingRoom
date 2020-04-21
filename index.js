@@ -30,30 +30,102 @@ Status = mongoose.model('Status');
 app.post('/sms', async (req, res) => {
   const twiml = new MessagingResponse();
 
+  const status = (await getStatus(req.body.From))[0];
+  console.log(status);
+  if(status.action == 'creating'){
+    if(status.group == null){
+      const room = await createRoom(req.body.Body);
+      await updateAction(status.number, status.action, room._id);
+      twiml.message('Who to add?');
+    } else{
+      //numbers = req.body.Body
+      //members = validate members
+      //addPendings()
+      // seendInviteSms
+      // sent invite to members, each person has to accept before they can participate
+    }
+  }
+
+  if(status.action == 'adding'){
+    if(status.group == null){
+      await updateAction(status.number, status.action, room._id);
+      twiml.message('Who to add?');
+    } else{
+      //numbers = req.body.Body
+      //members = validate members
+      //addPendings
+      // sendInviteSms
+      // sent invite to members, each person has to accept before they can participate
+    }
+  }
+
+  if(status.action == 'removing'){
+    if(status.group == null){
+      await updateAction(status.number, status.action, room._id);
+      twiml.message('Who to remove?');
+    } else{
+      //numbers = req.body.Body
+      //members = validate members
+      // removeMemebersOrPending
+      // sendRemovalSms
+      // removed members, each person has been notified you removed them
+    }
+  }
+
   if (req.body.Body == 'create') {
-    twiml.message('hi');
-  } else if (req.body.Body == 'bye') {
-    twiml.message('Goodbye');
-  } else {
-    twiml.message(
-      'No Body param match, Twilio sends this in the request to your server.'
-    );
+    await updateAction(req.body.From, 'create', null);
+    twiml.message('What to name?');
+  } else if (req.body.Body == 'status') {
+    //get groups
+    //send groups
+  } else if (req.body.Body == 'help'){
+    twiml.message('figure it out');
+  } else if (req.body.Body == 'add'){
+    //get groups
+    // if multiple
+       //update action adding, null group,
+       //ask which group
+    // if single
+        // update action adding, group
+        // ask who to add 
+  } else if (req.body.Body == 'remove'){
+    //get groups
+    // if multiple
+       //update action removing, null group,
+       //ask which group
+    // if single
+        // update action removing, group
+        // ask who to add 
+  } else if (req.body.Body == 'accept'){
+
   }
   
   res.writeHead(200, {'Content-Type': 'text/xml'});
   res.end(twiml.toString());
 });
 
+async function sendSMSInvites(memebers){
+  //foreach memeber, 
+    // send sms "type accept to accept "
+}
+
+async function getStatus(number){
+  return await Status.find({number:number});
+}
+
 async function updateAction(number, action, group) {
   const res = await Status.updateOne(
     { number: number },
-    { $set: { action: 'creating', group: null } },
+    { $set: { action: action, group: group } },
     { upsert: true } 
   );
 }
 
-async function getGroups(number){
-  return await Room.find({'members.number': '+14049605772'});
+async function getGroupsMember(number){
+  return await Room.find({'members.number': number});
+}
+async function getGroupsPending(number){
+  return await Room.find({'pendingss.number': number});
 }
 
 function makeMeeting(){
@@ -106,9 +178,10 @@ async function createRoom(name){
     zoom_link: null
     });
 }
-async function inviteMembers(room_id, members){
+async function addPendings(room_id, members){
   const room = (await Room.findById(room_id))[0];
-  members.forEacch((member) => room.pendings.push({number: member}));
+  // if number not in room.members
+  members.forEach((member) => room.pendings.push({number: member}));
   await room.save();
   return room;
 }
@@ -131,6 +204,5 @@ async function test(){
   console.log(groups);
 }
 
-test();
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
