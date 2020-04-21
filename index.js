@@ -30,74 +30,137 @@ Status = mongoose.model('Status');
 app.post('/sms', async (req, res) => {
   const twiml = new MessagingResponse();
 
-  const status = (await getStatus(req.body.From))[0];
-  console.log(status);
-  if(status.action == 'creating'){
-    if(status.group == null){
+  if(req.body.Body == 'cancel'){
+    //group name, pending names,
+  }
+
+  switch(status.action){
+    case 'creating':
+      if(status.group == null){
+      //validate alphanumeric no spaces
+      //check if user is in room named that name
+      // else try again
       const room = await createRoom(req.body.Body);
-      await updateAction(status.number, status.action, room._id);
+      await updateAction(status.number, 'adding', room._id);
       twiml.message('Who to add?');
-    } else{
-      //numbers = req.body.Body
-      //members = validate members
-      //addPendings()
-      // seendInviteSms
-      // sent invite to members, each person has to accept before they can participate
-    }
+      }
+      break;
+    case 'adding':
+      if(status.group == null){
+        //find room based on req.body.Body
+        //else status.action = null
+        await updateAction(status.number, status.action, room._id);
+        twiml.message('Who to add?');
+      } else{
+        //numbers = req.body.Body
+        //members = validate members
+        //addPendings
+        // sendInviteSms
+        // sent invite to members, each person has to accept before they can participate
+        //status.action = null
+      }
+      break;
+    case 'removing':
+      if(status.group == null){
+        //find room based on req.body.Body
+        //else status.action = null
+        await updateAction(status.number, status.action, room._id);
+        twiml.message('Who to remove?');
+      } else{
+        //numbers = req.body.Body
+        //members = validate members
+        // removeMemebersOrPending
+        // sendRemovalSms
+        // removed members, each person has been notified you removed them
+        //status.action = null
+      }
+      break;
+    case 'accepting': // group == null
+      //check if user is in pending named that name
+      // else name not found, try again options are
+      // accepted group name
+      // add Member
+      //status.action = null
+      break;
+    case 'leaving': //group == null
+      //check if user is in member named that name
+      // else name not found, try again options are
+      // left group name
+      // remove member self
+      // status.action == null
+      break;
+    case 'boreding':
+      //check if 'all'
+        //for each group memeber, intiate boredom
+        //status.action = null
+      //else
+        //check if user is in member named that name
+          // else name not found, try again options are
+        //status.action = null
+      break;
+    default:
+      break;
   }
 
-  if(status.action == 'adding'){
-    if(status.group == null){
-      await updateAction(status.number, status.action, room._id);
-      twiml.message('Who to add?');
-    } else{
-      //numbers = req.body.Body
-      //members = validate members
-      //addPendings
-      // sendInviteSms
-      // sent invite to members, each person has to accept before they can participate
-    }
-  }
-
-  if(status.action == 'removing'){
-    if(status.group == null){
-      await updateAction(status.number, status.action, room._id);
-      twiml.message('Who to remove?');
-    } else{
-      //numbers = req.body.Body
-      //members = validate members
-      // removeMemebersOrPending
-      // sendRemovalSms
-      // removed members, each person has been notified you removed them
-    }
-  }
-
-  if (req.body.Body == 'create') {
-    await updateAction(req.body.From, 'create', null);
-    twiml.message('What to name?');
-  } else if (req.body.Body == 'status') {
-    //get groups
-    //send groups
-  } else if (req.body.Body == 'help'){
-    twiml.message('figure it out');
-  } else if (req.body.Body == 'add'){
-    //get groups
-    // if multiple
-       //update action adding, null group,
-       //ask which group
-    // if single
-        // update action adding, group
-        // ask who to add 
-  } else if (req.body.Body == 'remove'){
-    //get groups
-    // if multiple
-       //update action removing, null group,
-       //ask which group
-    // if single
-        // update action removing, group
-        // ask who to add 
-  } else if (req.body.Body == 'accept'){
-
+  switch(req.body.Body.trim().toLowerCase()){
+    case 'create':
+      await updateAction(req.body.From, 'create', null);
+      twiml.message('What to name?');
+      break;
+    case 'status':
+      //get groupsMember
+      //send groups
+      // send get groupsPending
+      break;
+    case 'help':
+      twiml.message('figure it out');
+      break;
+    case 'add':
+      //get groupsMember
+      // if multiple
+        //update action adding, null group,
+        //ask which group
+      // if single
+          // update action adding, group
+          // ask who to add 
+      break;
+    case 'remove':
+      //get groupsMember
+      // if multiple
+        //update action removing, null group,
+        //ask which group
+      // if single
+          // update action removing, group
+        // ask who to remove
+      break;
+    case 'accept':
+      //get groupsPending
+      // if multiple
+        //update action accepting, null group
+        //ask which group
+      // if single
+        // accepted group name
+        // add Member
+      break;
+    case 'leave':
+      // get GroupsMember
+      // if multiple
+        //update action leaving
+        // ask which group
+      // if single 
+        // left group group
+        // removeMember self
+      break;
+    case 'bored':
+      // get GroupsMember
+      // if multiple
+        //update action boreding
+        // ask which group
+      // if single 
+        // initiate boredom (number, room)
+    break;
+    default:
+      break;
   }
   
   res.writeHead(200, {'Content-Type': 'text/xml'});
@@ -113,6 +176,23 @@ async function getStatus(number){
   return await Status.find({number:number});
 }
 
+async function intiateBoredom(number, room){
+  // get room from id
+  // number set bored_time now
+
+  // if zoom_age < 40mins
+    //send message number , zoom_link
+    // save room
+  //else
+  // boredMembers = foreach member. filter date < 20 mins
+  //if  boreMembers.count() > 1
+    // createMeeting
+    // foreach member send sms meeting link
+    // zoom_link = meeting link
+    // zoom_age = Date.now()
+    //save room
+
+}
 async function updateAction(number, action, group) {
   const res = await Status.updateOne(
     { number: number },
@@ -121,10 +201,10 @@ async function updateAction(number, action, group) {
   );
 }
 
-async function getGroupsMember(number){
+async function getRoomsMember(number){
   return await Room.find({'members.number': number});
 }
-async function getGroupsPending(number){
+async function getRoomsPending(number){
   return await Room.find({'pendingss.number': number});
 }
 
@@ -188,10 +268,12 @@ async function addPendings(room_id, members){
 
 async function addMember(room_id, member){
   const room = (await Room.findById(room_id))[0];
-  members.forEacch((member) => room.pendings.push({number: member}));
+  //room.pendings.remove({number: member}));
+  //room.members.push number
   await room.save();
   return room;
 }
+
 async function test(){
   const room = await Room.find( { name: 'abc' });
   // room.members = [];
