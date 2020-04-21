@@ -122,7 +122,7 @@ app.post('/sms', async (req, res) => {
         // send get groupsPending
         break;
       case 'help':
-        twiml.message('figure it out');
+        twiml.message('livingroom.trueshape.io');
         break;
       case 'add':
         if(memberRooms.length > 1){
@@ -146,26 +146,32 @@ app.post('/sms', async (req, res) => {
         if(pendingRooms.length > 1){
           //update action accepting, null group
           //ask which group
-        } else {
+        } else if (pendingRooms.length == 1){
           // accepted group name
           // add Member
+        } else {
+          //you don't have any pending invites
         }
         break;
       case 'leave':
         if(memberRooms.length > 1){
           //update action leaving
           // ask which group
-        } else {
+        } else if (memberRooms.length == 1){
           // left group group
           // removeMember self
+        } else {
+          //send message youre not in any rooms
         }
         break;
       case 'bored':
         if(memberRooms.length > 1){
           //update action boreding
           // ask which group
-        } else {
+        } else if (memberRooms.length == 1){
           // initiate boredom (number, room)
+        } else {
+          //send message youre not in any rooms
         }
         break;
       default:
