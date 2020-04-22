@@ -53,7 +53,7 @@ app.post('/sms', async (req, res) => {
         }else if( memberRooms.filter( room => room.name == text).length != 0){
           twiml.message("You're already in a group named " + text + " enter a different name.");
         } else {
-          const room = await createRoom(text);
+          const room = await createRoom(text, req.body.From);
           await updateStatus(status.number, 'adding', room._id);
           twiml.message('Who Do you want to add? Comma seperated 10 digit USA numbers.');
         }
@@ -132,64 +132,74 @@ app.post('/sms', async (req, res) => {
     switch(text){
       case 'create':
         await updateStatus(req.body.From, 'create', null);
-        twiml.message('What to name?');
+        twiml.message("I'm creating your room now. What do you want to name it?");
         break;
       case 'status':
-        //get groupsMember
-        //send groups
-        // send get groupsPending
+        let out = pendingRooms.length > 0 ? "You have been invited to:" + pendingRoomNames : "";
+        out = "You are in " + memberRooms.length + " rooms";
+        for(let i =0; i< memberRooms.length; i++){
+          out += "Room: " + memberRooms[i];
+          out += "Memebers: " + memberRooms[i].members.map(member => member.name).toString;
+          out += "Pending invites: " + memberRooms[i].pendings.toString();    
+        }
+        twiml.message(out);
         break;
       case 'help':
-        twiml.message('livingroom.trueshape.io');
+        twiml.message('Take a look at: livingroom.trueshape.io');
         break;
       case 'add':
         if(memberRooms.length > 1){
-          //update action adding, null group,
-          //ask which group
-        } else {
-          // update action adding, group
-          // ask who to add 
+          updateStatus(req.body.From, 'adding', null);
+          twiml.message("What room do you want to add someone to?");
+        } else if(memberRooms.length == 0){
+          twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.")
+        } else{ // memeberRooms == 0
+          updateStatus(req.body.From, 'adding', memberRooms[0]);
+          twiml.message('Who Do you want to add? Comma seperated 10 digit USA numbers.');
         }
         break;
       case 'remove':
         if(memberRooms.length > 1){
-          //update action removing, null group,
-          //ask which group
-        } else {
-            // update action removing, group
-          // ask who to remove
+          updateStatus(req.body.From, 'removing', null);
+          twiml.message("What room do you want to remove someone to?");
+        } else if(memberRooms.length == 0){
+          twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.")
+        } else{ // memeberRooms == 0
+          updateStatus(req.body.From, 'removing', memberRooms[0]);
+          twiml.message('Who do you want to remove? 10 digit number of the member you want to remove.');
         }
         break;
       case 'accept':
         if(pendingRooms.length > 1){
-          //update action accepting, null group
-          //ask which group
+          updateStatus(req.body.From, 'accepting', null);
+          twiml.message("What room's invite do you want to accept?");
         } else if (pendingRooms.length == 1){
-          // accepted group name
-          // add Member
-        } else {
-          //you don't have any pending invites
+          twiml.message("You've joined the " + pendingRooms[0].name + 
+          ". You can leave by texting me 'leave'. To see who else is here, text 'status'. Text 'bored' whenever you feel bored ot get teh video chat party started.");
+          addMember(pendingRooms[0]._id,req.body.From);
+        } else {// pendingRooms == 0
+          twiml.message("You have no pending invites currently. Go ask your friends to add you or you can create your own room by texting 'create'");
         }
         break;
       case 'leave':
         if(memberRooms.length > 1){
-          //update action leaving
-          // ask which group
+          updateStatus(req.body.From, 'leaving', null);
+          twiml.message("What room do you want to leave?");
         } else if (memberRooms.length == 1){
-          // left group group
-          // removeMember self
-        } else {
-          //send message youre not in any rooms
+          twiml.message("You've left the " + memberRooms[0].name + "room.");
+          removeMembers(memberRooms[0]._id,req.body.From);
+        } else {// memberRooms == 0
+          twiml.message("You aren't currently in any rooms. Go ask your friends to add you or you can create your own room by texting 'create'");
         }
         break;
       case 'bored':
         if(memberRooms.length > 1){
-          //update action boreding
-          // ask which group
+          updateStatus(req.body.From, 'boreding', null);
+          twiml.message("What room do you want to be bored in? (text 'all' for all of them)");
         } else if (memberRooms.length == 1){
           // initiate boredom (number, room)
-        } else {
-          //send message youre not in any rooms
+        } else {// memberRooms == 0
+          twiml.message("You aren't currently in any rooms. Go ask your friends to add you or you can create your own room by texting 'create'");
         }
         break;
       default:
@@ -309,13 +319,15 @@ function sendMessage(to, body) {
 }
 
 //creates a room with the specified name and returns the object
-async function createRoom(name){
-  return await Room({
+async function createRoom(name, number){
+  const room =  Room({
     name: name,
     members: [],
     pendings: [],
     zoom_link: null
-    }).save();
+    });
+  room.members.push({number: number, bored_time: new Date('February 24, 1999')});
+  return await room.save();
 }
 
 // true if name is not a reserved word and contains only alphanumerics
