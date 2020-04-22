@@ -106,7 +106,7 @@ app.post('/sms', async (req, res) => {
         }
         break;
       case 'leaving': //group == null
-        let rooms  = memberRooms.filter(room => room.name == text);
+        let rooms = memberRooms.filter(room => room.name == text);
         if( rooms.length == 0){
           twiml.message("You're not in a room named " + text + ". You are a member in the following rooms: " + memberRoomNames + ". Choose one of those to leave.");
         } else {
@@ -117,13 +117,18 @@ app.post('/sms', async (req, res) => {
         break;
       case 'boreding':
         if(text == 'all'){
-          //for each group memeber, intiate boredom
+          memberRooms.forEach(room => intiateBoredom(req.body.From, room._id));
+          twiml.message("You just marked yourself bored in every room. You'll get a message with a video chat link when someone in a room is also bored.")
           updateStatus(req.body.From, null, null);
         }else {
-
-          //check if user is in member named that name
-            // else name not found, try again options are
-          updateStatus(req.body.From, null, null);
+          let rooms = memberRooms.filter(room => room.name == text);
+          if( rooms.length == 0){
+            twiml.message("You're not a member of the" + text + " room. You are a member in the following rooms: " + memberRoomNames + ". Choose one of those to be bored in.");
+          } else {
+            twiml.message("You just marked yourself bored in " + rooms[0].name + ". You'll get a message with a video chat link when someone in that room is also bored.");
+            intiateBoredom(req.body.From, rooms[0]._id);
+            updateStatus(req.body.From, null, null);
+          }
         }
         break;
       default:
