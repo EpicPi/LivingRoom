@@ -37,50 +37,60 @@ app.post('/sms', async (req, res) => {
     //status.action = null
     //group name, pending names,
   }
+
   const status = getStatus(req.body.From)[0];
   const memberRooms = getRoomsMember(req.body.From);
+  const memberRoomNames = memberRooms.map( room => room.name).toString;
   const pendingRooms = getRoomsPending(req.body.From);
   let text = req.body.Body.trim().toLowerCase();
+
   if(status.action != null){
     switch(status.action){
       case 'creating':
         if(!isNameLegal(text)){
-          twiml.message("Not a legal name, try again. Must inclide only alphanumerica and no spaces.");
-        }else if( memberRooms.filter((room)=> room.name == text).length != 0){
-          twiml.message("You're already in a group named " + text +" enter a name");
+          twiml.message("Not a legal name, try again. Must include only alphanumerics. Cannot be a reserved word.");
+        }else if( memberRooms.filter( room => room.name == text).length != 0){
+          twiml.message("You're already in a group named " + text + " enter a different name.");
+        } else {
+          const room = await createRoom(text);
+          await updateStatus(status.number, 'adding', room._id);
+          twiml.message('Who Do you want to add? Comma seperated 10 digit USA numbers.');
         }
-        const room = await createRoom(text);
-        await updateAction(status.number, 'adding', room._id);
-        twiml.message('Who to add?');
         break;
       case 'adding':
         if(status.group == null){
-          //find room based on req.body.Body
-          //else status.action = null
-          await updateAction(status.number, status.action, room._id);
-          twiml.message('Who to add?');
+          let rooms = memberRooms.filter( room => room.name == text);
+          if( rooms.length == 0){
+            twiml.message("You're not in a room named " + text + ". You are in the following rooms: " + memberRoomNames  + ". Choose one of those to add a member to.")
+          }else{
+            await updateStatus(status.number, status.action, rooms[0]._id);
+            twiml.message('Who to add?');
+          }
         } else{
-          //numbers = req.body.Body
-          //members = validate members
-          //addPendings
-          // sendInviteSms
-          // sent invite to members, each person has to accept before they can participate
-          updateAction(req.body.From, null, null);
+          let numbers = convertNumbers(text);
+          addPendings(status.room, numbers);
+          const addingRoomName = memberRooms.filter(room => room._id == status.room)[0].name;
+          sendSMSInvites(numbers, addingRoomName, req.body.From);
+          twiml.message('Sent invite to' + numbers + ' each person has to accept before they can participate in ' + addingRoomName);  
+          updateStatus(req.body.From, null, null);
         }
         break;
       case 'removing':
         if(status.group == null){
-          //find room based on req.body.Body
-          //else status.action = null
-          await updateAction(status.number, status.action, room._id);
-          twiml.message('Who to remove?');
+          let rooms = memberRooms.filter( room => room.name == text);
+          if( rooms.length == 0){
+            twiml.message("You're not in a room named " + text + ". You are in the following rooms: " + memberRoomNames + ". Choose one of those to remove a member from.");
+          } else {
+            await updateStatus(status.number, status.action, rooms[0]._id);
+            twiml.message('Who to remove?');
+          }
         } else{
-          //numbers = req.body.Body
-          //members = validate members
-          // removeMemebersOrPending
-          // sendRemovalSms
-          // removed members, each person has been notified you removed them
-          updateAction(req.body.From, null, null);
+          let numbers = convertNumbers(text);
+          const removingRoomName = memberRooms.filter(room => room._id == status.room)[0].name;
+          removeMembers(status.room, numbers);
+          sendSMSRemovals(numbers, removingRoomName, req.body.From);
+          twiml.message("Removed " + numbers + " from " + removingRoomName + ". They have been notified you removed them.");
+          updateStatus(req.body.From, null, null);
         }
         break;
       case 'accepting': // group == null
@@ -88,23 +98,23 @@ app.post('/sms', async (req, res) => {
         // else name not found, try again options are
         // accepted group name
         // add Member
-        updateAction(req.body.From, null, null);
+        updateStatus(req.body.From, null, null);
         break;
       case 'leaving': //group == null
         //check if user is in member named that name
         // else name not found, try again options are
         // left group name
         // remove member self
-        updateAction(req.body.From, null, null);
+        updateStatus(req.body.From, null, null);
         break;
       case 'boreding':
         if(text == 'all'){
           //for each group memeber, intiate boredom
-          updateAction(req.body.From, null, null);
+          updateStatus(req.body.From, null, null);
         }else {
           //check if user is in member named that name
             // else name not found, try again options are
-          updateAction(req.body.From, null, null);
+          updateStatus(req.body.From, null, null);
         }
         break;
       default:
@@ -113,7 +123,7 @@ app.post('/sms', async (req, res) => {
   }else{
     switch(text){
       case 'create':
-        await updateAction(req.body.From, 'create', null);
+        await updateStatus(req.body.From, 'create', null);
         twiml.message('What to name?');
         break;
       case 'status':
@@ -183,9 +193,18 @@ app.post('/sms', async (req, res) => {
   res.end(twiml.toString());
 });
 
-async function sendSMSInvites(memebers){
-  //foreach memeber, 
-    // send sms "type accept to accept "
+//sends an sms invitation to each number 
+async function sendSMSInvites(numbers, room_name, by_number){
+  numbers.forEach(number => 
+    sendMessage(number, "You've been invited to " 
+    + room_name + " by " + by_number + " .Type 'accept' to join this room.") );
+}
+
+//sends an sms removal notifs to each number 
+async function sendSMSRemovals(numbers, room_name, by_number){
+  numbers.forEach(number => 
+    sendMessage(number, "You've been removed from " 
+    + room_name + " by" + by_number) );
 }
 
 async function getStatus(number){
@@ -207,9 +226,10 @@ async function intiateBoredom(number, room){
     // zoom_link = meeting link
     // zoom_age = Date.now()
     //save room
-
 }
-async function updateAction(number, action, group) {
+
+// updates the Status for that number with the action aand group
+async function updateStatus(number, action, group) {
   const res = await Status.updateOne(
     { number: number },
     { $set: { action: action, group: group } },
@@ -217,9 +237,12 @@ async function updateAction(number, action, group) {
   );
 }
 
+// find all rooms that number is a member of
 async function getRoomsMember(number){
   return await Room.find({'members.number': number});
 }
+
+// find all rooms that number has been invited to
 async function getRoomsPending(number){
   return await Room.find({'pendingss.number': number});
 }
@@ -247,7 +270,7 @@ function makeMeeting(){
 
   rp(options)
     .then(function (response) {
-        console.log('User has', response);
+        console.log(response);
         let resp = response;
         let result = resp.join_url;
     })
@@ -257,7 +280,17 @@ function makeMeeting(){
     });
 }
 
-function createMessage(to, body) {
+// converts str of numbers to an array of qualified numbers 
+function convertNumbers(str){
+  let numbers = str.split(',');
+  numbers = numbers.map(number => number.trim().replace(/[^0-9]/gi, ''));
+  numbers = numbers.filter(number => number.length == 10);
+  numbers = numbers.map(number => '+1' + number);
+  return numbers;
+}
+
+// sends message to number with body
+function sendMessage(to, body) {
   client.messages
     .create({
       body: body,
@@ -266,6 +299,7 @@ function createMessage(to, body) {
     })
     .then(message => console.log(message.sid));
 }
+
 //creates a room with the specified name and returns the object
 async function createRoom(name){
   return await Room({
@@ -276,13 +310,17 @@ async function createRoom(name){
     }).save();
 }
 
+// true if name is not a reserved word and contains only alphanumerics
 function isNameLegal(name){
   name = name.trim().toLowerCase();
-  if(name == 'all'){
+  if(name == 'all' || name == 'create' || name == 'status' || name == 'help' 
+    || name == 'add' || name == 'remove' || name == 'accept' || name == 'leave' 
+    || name == 'bored'){
     return false;
   }
-  //if name includes non alphanumeric - false
-  // if name == create, status, remove, leave, etc - false
+  if(!name.match(/^[a-z0-9]+$/)){
+    return false;
+  }
   return true;
 }
 
@@ -312,10 +350,12 @@ async function addMember(room_id, number){
   return room;
 }
 
-//removes member from the members list
-async function removeMember(room_id, number){
+//removes members from the members list
+async function removeMembers(room_id, numbers){
   const room = await Room.findById(room_id);
-  room.members = room.members.filter(member => member.number != number);
+  for(let i =0; i< numbers.length; i++){
+    room.members = room.members.filter(member => member.number != numbers[i]);
+  }
   room.save();
   return room;
 }
@@ -330,7 +370,7 @@ async function test(){
   // room[0].members = [];
   // room[0].members.push({number:'+14049605772', bored_time: Date.now()});
   // room[0].save();
-  // await updateAction('+14049605772', 'creating',null);
+  // await updateStatus('+14049605772', 'creating',null);
   // let groups = await getGroups('+14049605772');
   // console.log(groups);
 }

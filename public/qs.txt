@@ -53,6 +53,8 @@ You can text me 'status', 'help', 'add', 'remove', 'accept', 'leave', and 'bored
 What's trueshape? Why is this at livingroom.trueshape.io?
 Don't worry about it. I was too lazy to buy another domain and get it set up when I had a perfectly good one ready to go. 
 
+What's a reserved word?
+'status', 'help', 'add', 'remove', 'accept', 'leave','bored, and 'all'.
 
 Snark
 

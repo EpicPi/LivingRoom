@@ -3,7 +3,7 @@ Schema = mongoose.Schema;
 
 const StatusSchema = new Schema({
   number: String,
-  group: String,
+  room: String,
   action: String    
   });
 
