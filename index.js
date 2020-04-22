@@ -257,18 +257,17 @@ async function intiateBoredom(number, room_id){
     }
   });
 
-  // if(room.zoom_age )
-  // if zoom_age < 40mins
-    //send message number , zoom_link
-    // save room
-  //else
-  // boredMembers = foreach member. filter date < 20 mins
-  //if  boreMembers.count() > 1
-    // createMeeting
-    // foreach member send sms meeting link
-    // zoom_link = meeting link
-    // zoom_age = Date.now()
-    //save room
+  if(getAgeMinutes(room.zoom_age) < 40 ){
+    sendMessage(number,"Ongoing meeting found! Join: "+ room.zoom_link);
+  }else{
+    const boredMembers = room.members.filter(member => getAgeMinutes(member.bored_time) < 20);
+    if(boredMembers.length > 1){
+      room.zoom_link = await makeMeeting();
+      room.zoom_age = Date.now();
+      boredMembers.forEach(member => sendMessage(member.number, "Meeting starting now in the " + room.name + " room. Join: "+ room.zoom_link));      
+    }
+  }
+  room.save();
 }
 
 // updates the Status for that number with the action aand group
@@ -290,7 +289,8 @@ async function getRoomsPending(number){
   return await Room.find({'pendingss.number': number});
 }
 
-function makeMeeting(){
+//returns the zoom_link of a meeting
+async function makeMeeting(){
   const email = 'piyushgk1@gmail.com';
   var options = {
     uri: 'https://api.zoom.us/v2/users/'+email+'/meetings', 
@@ -323,6 +323,10 @@ function makeMeeting(){
     });
 }
 
+function getAgeMinutes(date){
+  return (Date.now() - date)/1000/60;
+}
+
 // converts str of numbers to an array of qualified numbers 
 function convertNumbers(str){
   let numbers = str.split(',');
@@ -349,7 +353,8 @@ async function createRoom(name, number){
     name: name,
     members: [],
     pendings: [],
-    zoom_link: null
+    zoom_link: null,
+    zoom_age: new Date('February 24, 1999')
     });
   room.members.push({number: number, bored_time: new Date('February 24, 1999')});
   return await room.save();
@@ -406,18 +411,22 @@ async function removeMembers(room_id, numbers){
 }
 
 async function test(){
-  let room = await Room.find( { name: 'abc' });
-  room  = room[0]
+  // let room = await Room.find( { name: 'kancha' });
+
+  // room  = room[0]
+  // console.log((Date.now()-room.zoom_age)/1000/60);
   // room.members = [];
-  console.log(room._id);
-  let room2 = await Room.findById(room._id);
-  console.log(room2);
+  // console.log(room._id);
+  // let room2 = await Room.findById(room._id);
+  // console.log(room2);
   // room[0].members = [];
   // room[0].members.push({number:'+14049605772', bored_time: Date.now()});
   // room[0].save();
   // await updateStatus('+14049605772', 'creating',null);
   // let groups = await getGroups('+14049605772');
   // console.log(groups);
+  // createRoom('kancha', '+14049605772');
+
 }
 test();
 
