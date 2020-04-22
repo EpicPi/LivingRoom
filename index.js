@@ -120,6 +120,7 @@ app.post('/sms', async (req, res) => {
           //for each group memeber, intiate boredom
           updateStatus(req.body.From, null, null);
         }else {
+
           //check if user is in member named that name
             // else name not found, try again options are
           updateStatus(req.body.From, null, null);
@@ -151,24 +152,24 @@ app.post('/sms', async (req, res) => {
         if(memberRooms.length > 1){
           updateStatus(req.body.From, 'adding', null);
           twiml.message("What room do you want to add someone to?");
-        } else if(memberRooms.length == 0){
-          updateStatus(req.body.From, null, null);
-          twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.")
-        } else{ // memeberRooms == 1
+        } else if(memberRooms.length == 1){
           updateStatus(req.body.From, 'adding', memberRooms[0]);
           twiml.message('Who Do you want to add? Comma seperated 10 digit USA numbers.');
+        } else{ // memeberRooms == 0
+          updateStatus(req.body.From, null, null);
+          twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.")
         }
         break;
       case 'remove':
         if(memberRooms.length > 1){
           updateStatus(req.body.From, 'removing', null);
           twiml.message("What room do you want to remove someone to?");
-        } else if(memberRooms.length == 0){
-          updateStatus(req.body.From, null, null);
-          twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.")
-        } else{ // memeberRooms == 1
+        } else if(memberRooms.length == 1){
           updateStatus(req.body.From, 'removing', memberRooms[0]);
           twiml.message('Who do you want to remove? 10 digit number of the member you want to remove.');
+        } else{ // memeberRooms == 0
+          updateStatus(req.body.From, null, null);
+          twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.")
         }
         break;
       case 'accept':
