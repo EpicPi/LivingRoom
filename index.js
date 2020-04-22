@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const config = require('./config');
-const rp = require('request-promise');
+const axios = require('axios').default;
 
 const express = require('express');
 
@@ -36,13 +36,13 @@ app.post('/sms', async (req, res) => {
     twiml.message("You've got a clean slate now.");
   }
 
-  const status = getStatus(req.body.From)[0];
+  const status = await getStatus(req.body.From);
   let text = req.body.Body.trim().toLowerCase();  
   
-  const memberRooms = getRoomsMember(req.body.From);
+  const memberRooms = await getRoomsMember(req.body.From);
   const memberRoomNames = memberRooms.map( room => room.name).toString;
 
-  const pendingRooms = getRoomsPending(req.body.From);
+  const pendingRooms = await getRoomsPending(req.body.From);
   const pendingRoomNames = pendingRooms.map( room => room.name).toString;
   
   if(status.action != null){
@@ -51,7 +51,7 @@ app.post('/sms', async (req, res) => {
         if(!isNameLegal(text)){
           twiml.message("Not a legal name, try again. Must include only alphanumerics. Cannot be a reserved word.");
         }else if( memberRooms.filter( room => room.name == text).length != 0){
-          twiml.message("You're already in a group named " + text + " enter a different name.");
+          twiml.message("You're already in a room named " + text + " enter a different name.");
         } else {
           const room = await createRoom(text, req.body.From);
           await updateStatus(status.number, 'adding', room._id);
@@ -60,7 +60,7 @@ app.post('/sms', async (req, res) => {
         break;
       }
       case 'adding':{
-        if(status.group == null){
+        if(status.room == null){
           let rooms = memberRooms.filter( room => room.name == text);
           if( rooms.length == 0){
             twiml.message("You're not in a room named " + text + ". You are in the following rooms: " + memberRoomNames  + ". Choose one of those to add a member to.")
@@ -79,7 +79,7 @@ app.post('/sms', async (req, res) => {
         break;
       }
       case 'removing':{
-        if(status.group == null){
+        if(status.room == null){
           let rooms = memberRooms.filter( room => room.name == text);
           if( rooms.length == 0){
             twiml.message("You're not in a room named " + text + ". You are in the following rooms: " + memberRoomNames + ". Choose one of those to remove a member from.");
@@ -97,7 +97,7 @@ app.post('/sms', async (req, res) => {
         }
         break;
       }
-      case 'accepting': {// group == null
+      case 'accepting': {// room == null
         let rooms  = pendingRooms.filter(room => room.name == text);
         if( rooms.length == 0){
           twiml.message("You're not invited to a room named " + text + ". You have been invited to the following rooms: " + pendingRoomNames + ". Choose one of those to join.");
@@ -109,7 +109,7 @@ app.post('/sms', async (req, res) => {
         }
         break;
       }
-      case 'leaving': {//group == null
+      case 'leaving': {//room == null
         let rooms = memberRooms.filter(room => room.name == text);
         if( rooms.length == 0){
           twiml.message("You're not in a room named " + text + ". You are a member in the following rooms: " + memberRoomNames + ". Choose one of those to leave.");
@@ -142,24 +142,26 @@ app.post('/sms', async (req, res) => {
     }
   }else{
     switch(text){
-      case 'create':
+      case 'create':{
         await updateStatus(req.body.From, 'create', null);
         twiml.message("I'm creating your room now. What do you want to name it?");
         break;
-      case 'status':
+      }
+      case 'status':{
         let out = pendingRooms.length > 0 ? "You have been invited to:" + pendingRoomNames : "";
         out = "You are in " + memberRooms.length + " rooms";
         for(let i =0; i< memberRooms.length; i++){
-          out += "Room: " + memberRooms[i];
-          out += "Memebers: " + memberRooms[i].members.map(member => member.name).toString;
+          out += "Room: " + memberRooms[i].name;
+          out += "Memebers: " + memberRooms[i].members.map(member => member.number).toString();
           out += "Pending invites: " + memberRooms[i].pendings.toString();    
         }
         twiml.message(out);
         break;
-      case 'help':
-        twiml.message('Take a look at: livingroom.trueshape.io');
-        break;
-      case 'add':
+      }
+      // case 'info':
+      //   twiml.message('Take a look at: livingroom.trueshape.io');
+      //   break;
+      case 'add':{
         if(memberRooms.length > 1){
           updateStatus(req.body.From, 'adding', null);
           twiml.message("What room do you want to add someone to?");
@@ -171,7 +173,8 @@ app.post('/sms', async (req, res) => {
           twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.")
         }
         break;
-      case 'remove':
+      }
+      case 'remove':{
         if(memberRooms.length > 1){
           updateStatus(req.body.From, 'removing', null);
           twiml.message("What room do you want to remove someone to?");
@@ -183,7 +186,8 @@ app.post('/sms', async (req, res) => {
           twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.")
         }
         break;
-      case 'accept':
+      }
+      case 'accept':{
         if(pendingRooms.length > 1){
           updateStatus(req.body.From, 'accepting', null);
           twiml.message("What room's invite do you want to accept?");
@@ -197,7 +201,8 @@ app.post('/sms', async (req, res) => {
           twiml.message("You have no pending invites currently. Go ask your friends to add you or you can create your own room by texting 'create'");
         }
         break;
-      case 'leave':
+      }
+      case 'leave':{
         if(memberRooms.length > 1){
           updateStatus(req.body.From, 'leaving', null);
           twiml.message("What room do you want to leave?");
@@ -210,18 +215,20 @@ app.post('/sms', async (req, res) => {
           twiml.message("You aren't currently in any rooms. Go ask your friends to add you or you can create your own room by texting 'create'");
         }
         break;
-      case 'bored':
+      }
+      case 'bored':{
         if(memberRooms.length > 1){
           updateStatus(req.body.From, 'boreding', null);
           twiml.message("What room do you want to be bored in? (text 'all' for all of them)");
         } else if (memberRooms.length == 1){
           updateStatus(req.body.From, null, null);
-          // initiate boredom (number, room)
+          initiateBoredom(req.body.From, memberRooms[0]._id);
         } else {// memberRooms == 0
           updateStatus(req.body.From, null, null);
           twiml.message("You aren't currently in any rooms. Go ask your friends to add you or you can create your own room by texting 'create'");
         }
         break;
+      }
       default:
         break;
     }
@@ -245,10 +252,17 @@ async function sendSMSRemovals(numbers, room_name, by_number){
     + room_name + " by" + by_number) );
 }
 
+// gets the status obj for the number
 async function getStatus(number){
-  return await Status.find({number:number});
+  let status = (await Status.find({number:number}))[0];
+  if(status.length == 0){
+    return await updateStatus(number, null, null);
+  }
+  return status;
 }
 
+// checks who's bored in the room and sends zoom_links if necessary
+// if zoom_link is less tahn 40 mins old, sends that link instead
 async function intiateBoredom(number, room_id){
   const room = await Room.findById(room_id);
   room.members.forEach( member => {
@@ -270,11 +284,11 @@ async function intiateBoredom(number, room_id){
   room.save();
 }
 
-// updates the Status for that number with the action aand group
-async function updateStatus(number, action, group) {
+// updates the Status for that number with the action and room
+async function updateStatus(number, action, room) {
   const res = await Status.updateOne(
     { number: number },
-    { $set: { action: action, group: group } },
+    { $set: { action: action, room: room } },
     { upsert: true } 
   );
 }
@@ -293,36 +307,36 @@ async function getRoomsPending(number){
 async function makeMeeting(){
   const email = 'piyushgk1@gmail.com';
   var options = {
-    uri: 'https://api.zoom.us/v2/users/'+email+'/meetings', 
+    url: 'https://api.zoom.us/v2/users/'+email+'/meetings', 
     method: 'POST',
-    qs: {
-        status: 'active' 
-    },
-    auth: {
-        'bearer': token
-    },
-    body: {
-        type: 1,
+    data: {
+        type: 2,
+        start_time: new Date().toISOString(),
+        settings: {
+          host_video:true,
+          participant_video: true,
+          join_before_host: true,
+          mute_upon_entry: false,
+          approval_type: 3,
+          audio: 'both',
+          auto_recording: 'none',
+          enforce_login: false,
+          waiting_room: false,
+          meeting_authentication: false,
+        },
     },
     headers: {
         'User-Agent': 'Zoom-api-Jwt-Request',
-        'content-type': 'application/json'
+        'content-type': 'application/json',
+        'Authorization': `bearer ${token}`,
     },
-    json: true
   }
 
-  rp(options)
-    .then(function (response) {
-        console.log(response);
-        let resp = response;
-        let result = resp.join_url;
-    })
-    .catch(function (err) {
-        // API call failed...
-        console.log('API call failed, reason ', err);
-    });
+  const response = await axios(options);
+  return response.data.join_url;
 }
 
+// age of the specified date object in minutes
 function getAgeMinutes(date){
   return (Date.now() - date)/1000/60;
 }
@@ -365,7 +379,7 @@ function isNameLegal(name){
   name = name.trim().toLowerCase();
   if(name == 'all' || name == 'create' || name == 'status' || name == 'help' 
     || name == 'add' || name == 'remove' || name == 'accept' || name == 'leave' 
-    || name == 'bored'){
+    || name == 'bored' || name == 'info' || name == 'start' || name == 'stop'){
     return false;
   }
   if(!name.match(/^[a-z0-9]+$/)){
@@ -412,7 +426,7 @@ async function removeMembers(room_id, numbers){
 
 async function test(){
   // let room = await Room.find( { name: 'kancha' });
-
+  // makeMeeting();
   // room  = room[0]
   // console.log((Date.now()-room.zoom_age)/1000/60);
   // room.members = [];
@@ -423,10 +437,7 @@ async function test(){
   // room[0].members.push({number:'+14049605772', bored_time: Date.now()});
   // room[0].save();
   // await updateStatus('+14049605772', 'creating',null);
-  // let groups = await getGroups('+14049605772');
-  // console.log(groups);
   // createRoom('kancha', '+14049605772');
-
 }
 test();
 
