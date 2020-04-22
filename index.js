@@ -28,22 +28,23 @@ Room = mongoose.model('Room');
 Status = mongoose.model('Status');
 
 
-app.get('/', )
-
 app.post('/sms', async (req, res) => {
   const twiml = new MessagingResponse();
 
   if(req.body.Body == 'cancel'){
-    //status.action = null
-    //group name, pending names,
+    updateStatus(req.body.From, null, null);
+    twiml.message("You've got a clean slate now.");
   }
 
   const status = getStatus(req.body.From)[0];
+  let text = req.body.Body.trim().toLowerCase();  
+  
   const memberRooms = getRoomsMember(req.body.From);
   const memberRoomNames = memberRooms.map( room => room.name).toString;
-  const pendingRooms = getRoomsPending(req.body.From);
-  let text = req.body.Body.trim().toLowerCase();
 
+  const pendingRooms = getRoomsPending(req.body.From);
+  const pendingRoomNames = pendingRooms.map( room => room.name).toString;
+  
   if(status.action != null){
     switch(status.action){
       case 'creating':
@@ -94,18 +95,25 @@ app.post('/sms', async (req, res) => {
         }
         break;
       case 'accepting': // group == null
-        //check if user is in pending named that name
-        // else name not found, try again options are
-        // accepted group name
-        // add Member
-        updateStatus(req.body.From, null, null);
+        let rooms  = pendingRooms.filter(room => room.name == text);
+        if( rooms.length == 0){
+          twiml.message("You're not invited to a room named " + text + ". You have been invited to the following rooms: " + pendingRoomNames + ". Choose one of those to join.");
+        } else {
+          twiml.message("You've joined the " + rooms[0].name + 
+          ". You can leave by texting me 'leave'. To see who else is here, text 'status'. Text 'bored' whenever you feel bored ot get teh video chat party started.");
+          addMember(rooms[0]._id,req.body.From);
+          updateStatus(req.body.From, null, null);
+        }
         break;
       case 'leaving': //group == null
-        //check if user is in member named that name
-        // else name not found, try again options are
-        // left group name
-        // remove member self
-        updateStatus(req.body.From, null, null);
+        let rooms  = memberRooms.filter(room => room.name == text);
+        if( rooms.length == 0){
+          twiml.message("You're not in a room named " + text + ". You are a member in the following rooms: " + memberRoomNames + ". Choose one of those to leave.");
+        } else {
+          twiml.message("you've left the " + rooms[0].name + "room.");
+          removeMembers(rooms[0]._id,req.body.From);
+          updateStatus(req.body.From, null, null);
+        }
         break;
       case 'boreding':
         if(text == 'all'){
