@@ -304,7 +304,7 @@ async function initiateBoredom(number, room_id) {
 
 // updates the Status for that number with the action and room
 async function updateStatus(number, action, room) {
-  const res = await Status.updateOne(
+  return await Status.updateOne(
     { number: number },
     { $set: { action: action, room: room } },
     { upsert: true }
