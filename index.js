@@ -292,7 +292,7 @@ async function initiateBoredom(number, room_id) {
 
   if (getAgeMinutes(room.zoom_age) < 40) {
     sendMessage(number, "Ongoing meeting found in " + room.name + "! Join: " + room.zoom_link);
-    markMeetingLinkSent(room._id, member.number);
+    markMeetingLinkSent(room._id, number);
   } else {
     const boredMembers = room.members.filter(member => getAgeMinutes(member.bored_time) < 20);
     if (boredMembers.length > 1) {
