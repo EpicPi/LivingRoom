@@ -290,7 +290,7 @@ async function initiateBoredom(number, room_id) {
   });
 
   if (getAgeMinutes(room.zoom_age) < 40) {
-    sendMessage(number, "Ongoing meeting found! Join: " + room.zoom_link);
+    sendMessage(number, "Ongoing meeting found in " + room.name + "! Join: " + room.zoom_link);
   } else {
     const boredMembers = room.members.filter(member => getAgeMinutes(member.bored_time) < 20);
     if (boredMembers.length > 1) {
@@ -323,6 +323,7 @@ async function getRoomsPending(number) {
 
 //returns the zoom_link of a meeting
 async function makeMeeting() {
+
   const email = 'piyushgk1@gmail.com';
   var options = {
     url: 'https://api.zoom.us/v2/users/' + email + '/meetings',
