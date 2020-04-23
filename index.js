@@ -271,6 +271,11 @@ async function sendSMSRemovals(numbers, room_name, by_number) {
       + room_name + " by " + by_number));
 }
 
+async function sendSMSBoredNotifs(members, roomName){
+  const nonBoredMembers= members.filter(member => getAgeMinutes(member.bored_time) > 20);
+  nonBoredMembers.forEach(member => sendMessage(member.number, "Someone just said they were bored in " + roomName + ". Text bored to join the zoom party!"));
+}
+
 // gets the status obj for the number
 async function getStatus(number) {
   let status = (await Status.find({ number: number }));
@@ -289,6 +294,8 @@ async function initiateBoredom(number, room_id) {
       member.bored_time = Date.now()
     }
   });
+
+  sendSMSBoredNotifs(room.members, room.name);
 
   if (getAgeMinutes(room.zoom_age) < 40) {
     sendMessage(number, "Ongoing meeting found in " + room.name + "! Join: " + room.zoom_link);
