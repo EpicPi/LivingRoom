@@ -273,7 +273,7 @@ async function sendSMSRemovals(numbers, room_name, by_number) {
 
 async function sendSMSBoredNotifs(members, roomName){
   const nonBoredMembers= members.filter(member => getAgeMinutes(member.bored_time) > 20);
-  nonBoredMembers.forEach(member => sendMessage(member.number, "Someone just said they were bored in " + roomName + ". Text bored to join the zoom party!"));
+  nonBoredMembers.forEach(member => sendMessage(member.number, "Someone just said they were bored in " + roomName + ". Text 'bored' to join the zoom party!"));
 }
 
 // gets the status obj for the number
