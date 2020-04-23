@@ -64,7 +64,7 @@ app.post('/sms', async (req, res) => {
           if(status.room == null){
             let rooms = memberRooms.filter( room => room.name == text);
             if( rooms.length == 0){
-              twiml.message("You're not in a room named " + text + ". You are in the following rooms: " + memberRoomNames  + ". Choose one of those to add a member to." + backMessage);
+              twiml.message("You're not in a room named " + text + ".\nYou are in the following rooms: " + memberRoomNames  + ".\nChoose one of those to add a member to." + backMessage);
             }else{
               await updateStatus(status.number, status.action, rooms[0]._id);
               twiml.message('Who to add?' +backMessage);
@@ -74,7 +74,7 @@ app.post('/sms', async (req, res) => {
             addPendings(status.room, numbers);
             const addingRoomName = memberRooms.filter(room => room._id == status.room)[0].name;
             sendSMSInvites(numbers, addingRoomName, req.body.From);
-            twiml.message('Sent invite to' + numbers + ' each person has to accept before they can participate in ' + addingRoomName);  
+            twiml.message('Sent invite to ' + numbers + ' each person has to accept before they can participate in ' + addingRoomName);  
             updateStatus(req.body.From, null, null);
           }
           break;
@@ -83,7 +83,7 @@ app.post('/sms', async (req, res) => {
           if(status.room == null){
             let rooms = memberRooms.filter( room => room.name == text);
             if( rooms.length == 0){
-              twiml.message("You're not in a room named " + text + ". You are in the following rooms: " + memberRoomNames + ". Choose one of those to remove a member from." + backMessage);
+              twiml.message("You're not in a room named " + text + ".\nYou are in the following rooms: " + memberRoomNames + ".\nChoose one of those to remove a member from." + backMessage);
             } else {
               await updateStatus(status.number, status.action, rooms[0]._id);
               twiml.message('Who to remove?' + backMessage);
@@ -93,7 +93,7 @@ app.post('/sms', async (req, res) => {
           const removingRoomName = memberRooms.filter(room => room._id == status.room)[0].name;
           removeMembers(status.room, numbers);
           sendSMSRemovals(numbers, removingRoomName, req.body.From);
-          twiml.message("Removed " + numbers + " from " + removingRoomName + ". They have been notified you removed them.");
+          twiml.message("Removed " + numbers.length == 0? 'no one': numbers + " from " + removingRoomName + ".\nThey have been notified you removed them.");
           updateStatus(req.body.From, null, null);
         }
         break;
@@ -102,10 +102,10 @@ app.post('/sms', async (req, res) => {
         let rooms  = pendingRooms.filter(room => room.name == text);
         if( rooms.length == 0){
           twiml.message("You're not invited to a room named " + text 
-          + ". You have been invited to the following rooms: " + pendingRoomNames + ". Choose one of those to join." + backMessage);
+          + ".\nYou have been invited to the following rooms: " + pendingRoomNames + ".\nChoose one of those to join." + backMessage);
         } else {
           twiml.message("You've joined the " + rooms[0].name + 
-          ". You can leave by texting me 'leave'. To see who else is here, text 'status'. Text 'bored' whenever you feel bored ot get the video chat party started.");
+          ".\nYou can leave by texting me 'leave'.\nTo see who else is here, text 'status'.\nText 'bored' whenever you feel bored to get the video chat party started.");
           addMember(rooms[0]._id,req.body.From);
           updateStatus(req.body.From, null, null);
         }
@@ -114,7 +114,7 @@ app.post('/sms', async (req, res) => {
       case 'leaving': {//room == null
         let rooms = memberRooms.filter(room => room.name == text);
         if( rooms.length == 0){
-          twiml.message("You're not in a room named " + text + ". You are a member in the following rooms: " + memberRoomNames + ". Choose one of those to leave." + backMessage);
+          twiml.message("You're not in a room named " + text + ".\nYou are a member of the following rooms: " + memberRoomNames + ".\nChoose one of those to leave." + backMessage);
         } else {
           twiml.message("You've left the " + rooms[0].name + " room.");
           removeMembers(rooms[0]._id, [req.body.From]);
@@ -124,16 +124,16 @@ app.post('/sms', async (req, res) => {
       }
       case 'boreding':{
         if(text == 'all'){
-          memberRooms.forEach(room => intiateBoredom(req.body.From, room._id));
+          memberRooms.forEach(room => initiateBoredom(req.body.From, room._id));
           twiml.message("You just marked yourself bored in every room. You'll get a message with a video chat link when someone in a room is also bored.")
           updateStatus(req.body.From, null, null);
         }else {
           let rooms = memberRooms.filter(room => room.name == text);
           if( rooms.length == 0){
-            twiml.message("You're not a member of the" + text + " room. Choose one of the following rooms to be bored in: " + memberRoomNames + backMessage);
+            twiml.message("You're not a member of the" + text + " room.\nChoose one of the following rooms to be bored in: " + memberRoomNames + backMessage);
           } else {
-            twiml.message("You just marked yourself bored in " + rooms[0].name + ". You'll get a message with a video chat link when someone in that room is also bored.");
-            intiateBoredom(req.body.From, rooms[0]._id);
+            twiml.message("You just marked yourself bored in " + rooms[0].name + ".\nYou'll get a message with a video chat link when someone in that room is also bored.");
+            initiateBoredom(req.body.From, rooms[0]._id);
             updateStatus(req.body.From, null, null);
           }
         }
@@ -145,13 +145,13 @@ app.post('/sms', async (req, res) => {
     }else{
       switch(text){
         case 'create':{
-          await updateStatus(req.body.From, 'create', null);
-          twiml.message("I'm creating your room now. What do you want to name it?" + backMessage);
+          await updateStatus(req.body.From, 'creating', null);
+          twiml.message("I'm creating your room now.\nWhat do you want to name it?" + backMessage);
           break;
         }
         case 'status':{
           let out = pendingRooms.length > 0 ? "You have been invited to: " + pendingRoomNames + "\n": "";
-          out = "You are in " + memberRooms.length + " rooms" + "\n\n";
+          out = "You're in " + memberRooms.length + " rooms" + "\n\n";
           for(let i =0; i< memberRooms.length; i++){
             out += "Room: " + memberRooms[i].name + "\n";
             out += "Memebers: " + memberRooms[i].members.map(member => member.number).toString() + "\n";
@@ -169,7 +169,7 @@ app.post('/sms', async (req, res) => {
             twiml.message("What room do you want to add someone to? \nYou're currently in: " + memberRoomNames + backMessage);
           } else if(memberRooms.length == 1){
             updateStatus(req.body.From, 'adding', memberRooms[0]._id);
-            twiml.message('Who do you want to add to' + memberRooms[0].name + '? \nText me the comma seperated 10 digit USA numbers.' + backMessage);
+            twiml.message('Who do you want to add to ' + memberRooms[0].name + '? \nText me the comma seperated 10 digit USA numbers.' + backMessage);
           } else{ // memeberRooms == 0
             updateStatus(req.body.From, null, null);
             twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.");
@@ -182,8 +182,8 @@ app.post('/sms', async (req, res) => {
             twiml.message("What room do you want to remove someone from? \nYou're currently in: " + memberRoomNames + backMessage);
           } else if(memberRooms.length == 1){
             updateStatus(req.body.From, 'removing', memberRooms[0]._id);
-            twiml.message('Who do you want to remove from' + memberRooms[0].name 
-            + '? \nThe current memebers are:' + memberRooms[0].members.map(member => member.number.substring(2)) + backMessage);
+            twiml.message('Who do you want to remove from ' + memberRooms[0].name 
+            + '? \nThe current memebers are: ' + memberRooms[0].members.map(member => member.number.substring(2)) + backMessage);
           } else{ // memeberRooms == 0
             updateStatus(req.body.From, null, null);
             twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.");
@@ -197,7 +197,7 @@ app.post('/sms', async (req, res) => {
           } else if (pendingRooms.length == 1){
             updateStatus(req.body.From, null, null);
             twiml.message("You've joined the " + pendingRooms[0].name + 
-            ". You can leave by texting me 'leave'. To see who else is here, text 'status'. Text 'bored' whenever you feel bored ot get teh video chat party started.");
+            ".\nYou can leave by texting me 'leave'.\nTo see who else is here, text 'status'.\nText 'bored' whenever you feel bored to get the video chat party started.");
             addMember(pendingRooms[0]._id,req.body.From);
           } else {// pendingRooms == 0
             updateStatus(req.body.From, null, null);
@@ -211,8 +211,8 @@ app.post('/sms', async (req, res) => {
             twiml.message("What room do you want to leave? \n You're currently in: " + memberRoomNames + backMessage); 
           } else if (memberRooms.length == 1){
             updateStatus(req.body.From, null, null);
-            twiml.message("You've left the " + memberRooms[0].name + "room." + backMessage);
-            removeMembers(memberRooms[0]._id,req.body.From);
+            twiml.message("You've left the " + memberRooms[0].name + " room.");
+            removeMembers(memberRooms[0]._id, [req.body.From]);
           } else {// memberRooms == 0
             updateStatus(req.body.From, null, null);
             twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.");
@@ -222,10 +222,11 @@ app.post('/sms', async (req, res) => {
         case 'bored':{
           if(memberRooms.length > 1){
             updateStatus(req.body.From, 'boreding', null);
-            twiml.message("What room do you want to be bored in? (text 'all' for all of them)\nYou're currently in: " + memberRoomNames + backMessage); //what rooms?
+            twiml.message("What room do you want to be bored in? (text 'all' for all of them)\nYou're currently in: " + memberRoomNames + backMessage);
           } else if (memberRooms.length == 1){
             updateStatus(req.body.From, null, null);
             initiateBoredom(req.body.From, memberRooms[0]._id);
+            twiml.message("You just marked yourself bored in " + memberRooms[0].name + ".\nYou'll get a message with a video chat link when someone in that room is also bored.");
           } else {// memberRooms == 0
             updateStatus(req.body.From, null, null);
             twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.");
@@ -244,30 +245,35 @@ app.post('/sms', async (req, res) => {
 
 //sends an sms invitation to each number 
 async function sendSMSInvites(numbers, room_name, by_number){
-  numbers.forEach(number => 
-    sendMessage(number, "You've been invited to " 
-    + room_name + " by " + by_number + " .Type 'accept' to join this room.") );
+  numbers.forEach(async number => {
+    const status = await Status.find({number:number});
+    if(status.length == 0){
+      sendMessage(number, "Welcome to the Living Room App. Find more information at livingroom.trueshape.io");
+    }
+    sendMessage(number, "You've been invited to the " 
+    + room_name + " room by " + by_number + " .\nType 'accept' to join this room.")
+  });
 }
 
 //sends an sms removal notifs to each number 
 async function sendSMSRemovals(numbers, room_name, by_number){
   numbers.forEach(number => 
     sendMessage(number, "You've been removed from " 
-    + room_name + " by" + by_number) );
+    + room_name + " by " + by_number) );
 }
 
 // gets the status obj for the number
 async function getStatus(number){
-  let status = (await Status.find({number:number}))[0];
+  let status = (await Status.find({number:number}));
   if(status.length == 0){
     return await updateStatus(number, null, null);
   }
-  return status;
+  return status[0];
 }
 
 // checks who's bored in the room and sends zoom_links if necessary
 // if zoom_link is less tahn 40 mins old, sends that link instead
-async function intiateBoredom(number, room_id){
+async function initiateBoredom(number, room_id){
   const room = await Room.findById(room_id);
   room.members.forEach( member => {
     if(member.number == number) {
@@ -304,7 +310,7 @@ async function getRoomsMember(number){
 
 // find all rooms that number has been invited to
 async function getRoomsPending(number){
-  return await Room.find({'pendingss.number': number});
+  return await Room.find({'pendings': number});
 }
 
 //returns the zoom_link of a meeting
@@ -361,8 +367,7 @@ function sendMessage(to, body) {
       body: body,
       from: '+15109397642',
       to: to
-    })
-    .then(message => console.log(message.sid));
+    });
 }
 
 //creates a room with the specified name and returns the object
@@ -398,7 +403,7 @@ async function addPendings(room_id, numbers){
   const room = await Room.findById(room_id);
   numbers = numbers.filter( number => !checkMembership(room.members, number)); 
   numbers = numbers.filter( number => !room.pendings.includes(number));
-  numbers.forEach(number => room.pendings.push({number: number}));
+  numbers.forEach(number => room.pendings.push(number));
   await room.save();
   return room;
 }
