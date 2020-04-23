@@ -329,7 +329,7 @@ async function getRoomsPending(number) {
 
 function markMeetingEvent(room){
   Event({
-    name: 'meeting_made',
+    type: 'meeting_made',
     time: Date.now(),
     room: room
   }).save();
@@ -337,7 +337,7 @@ function markMeetingEvent(room){
 
 function markMeetingLinkSent(room, member){
   Event({
-    name: 'meeting_link_sent',
+    type: 'meeting_link_sent',
     time: Date.now(),
     room: room,
     member: member
