@@ -28,6 +28,7 @@ mongoose.connect(config.MongoUrl);
 require('./models');
 Room = mongoose.model('Room');
 Status = mongoose.model('Status');
+Event = mongoose.model('Event');
 Name = mongoose.model('Name');
 
 
@@ -308,12 +309,17 @@ async function initiateBoredom(number, room_id) {
 
   if (getAgeMinutes(room.zoom_age) < 40) {
     sendMessage(number, "Ongoing meeting found in " + room.name + "! Join: " + room.zoom_link);
+    markMeetingLinkSent(room._id, number);
   } else {
     const boredMembers = room.members.filter(member => getAgeMinutes(member.bored_time) < 20);
     if (boredMembers.length > 1) {
       room.zoom_link = await makeMeeting();
+      markMeetingEvent(room._id);
       room.zoom_age = Date.now();
-      boredMembers.forEach(member => sendMessage(member.number, "Meeting starting now in the " + room.name + " room. Join: " + room.zoom_link));
+      boredMembers.forEach(member => {
+        sendMessage(member.number, "Meeting starting now in the " + room.name + " room. Join: " + room.zoom_link)
+        markMeetingLinkSent(room._id, member.number);
+      });
     }
   }
   room.save();
@@ -338,9 +344,25 @@ async function getRoomsPending(number) {
   return await Room.find({ 'pendings': number });
 }
 
+function markMeetingEvent(room){
+  Event({
+    type: 'meeting_made',
+    time: Date.now(),
+    room: room
+  }).save();
+}
+
+function markMeetingLinkSent(room, member){
+  Event({
+    type: 'meeting_link_sent',
+    time: Date.now(),
+    room: room,
+    member: member
+  }).save();
+}
+
 //returns the zoom_link of a meeting
 async function makeMeeting() {
-
   const email = 'piyushgk1@gmail.com';
   var options = {
     url: 'https://api.zoom.us/v2/users/' + email + '/meetings',
