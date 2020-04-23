@@ -28,6 +28,7 @@ mongoose.connect(config.MongoUrl);
 require('./models');
 Room = mongoose.model('Room');
 Status = mongoose.model('Status');
+Name = mongoose.model('Name');
 
 
 app.post('/sms', async (req, res) => {
@@ -150,6 +151,16 @@ app.post('/sms', async (req, res) => {
           }
           break;
         }
+        case 'naming': {
+          if (!isNameLegal(text)) {
+            twiml.message("Not a legal name, try again. Must include only alphanumerics. Cannot be a reserved word." + backMessage);
+          } else {
+            const name = await createName(text, req.body.From);
+            await updateStatus(status.number, null, null);
+            twiml.message('Your name has been updated to: ' + name.name);
+          }
+          break;
+        }
         default:
           break;
       }
@@ -165,7 +176,8 @@ app.post('/sms', async (req, res) => {
           out = "You're in " + memberRooms.length + " rooms" + "\n\n";
           for (let i = 0; i < memberRooms.length; i++) {
             out += "Room: " + memberRooms[i].name + "\n";
-            out += "Members: " + memberRooms[i].members.map(member => member.number).join(', ') + "\n";
+            const memberNames = await getMembersNames(memberRooms[i].members)
+            out += "Members: " + memberNames + "\n";
             out += "Pending invites: " + memberRooms[i].pendings.join(', ') + "\n\n";
           }
           twiml.message(out);
@@ -241,6 +253,11 @@ app.post('/sms', async (req, res) => {
           }
           break;
         }
+        case 'name': {
+          await updateStatus(req.body.From, 'naming', null);
+          twiml.message("What would you like your name to be?" + backMessage);
+          break;
+        }
         default:
           twiml.message("I couldn't understand that. \nYou can ask me to 'create' a room, display your 'status', 'add' members to a room, 'remove' members from a room, 'accept' an invite, or to mark you 'bored'.\nTake a look at livingroom.trueshape.io for more info.")
           break;
@@ -251,7 +268,7 @@ app.post('/sms', async (req, res) => {
   res.end(twiml.toString());
 });
 
-//sends an sms invitation to each number 
+//sends an sms invitation to each number
 async function sendSMSInvites(numbers, room_name, by_number) {
   numbers.forEach(async number => {
     const status = await Status.find({ number: number });
@@ -263,7 +280,7 @@ async function sendSMSInvites(numbers, room_name, by_number) {
   });
 }
 
-//sends an sms removal notifs to each number 
+//sends an sms removal notifs to each number
 async function sendSMSRemovals(numbers, room_name, by_number) {
   numbers.forEach(number =>
     sendMessage(number, "You've been removed from "
@@ -355,12 +372,36 @@ async function makeMeeting() {
   return response.data.join_url;
 }
 
+// get names of members
+async function getMembersNames(memberRoom) {
+  const membersNumbers = memberRoom.members.map(member => member.number);
+  const names = await Name.find({ 'number': {$in : membersNumbers }});
+  const arr = membersNumbers.map(number => {
+    const a = names.filter(name => name.number == number);
+    if (a.length == 1) {
+      return a[0];
+    }
+    return number;
+  });
+  return arr.join(', ');
+}
+
+// create nickname
+async function createName(name, number) {
+  name = await Name.findOneAndUpdate(
+    { 'number': number},
+    {$set: {'name': name, 'number': number}},
+    {new: true}
+  );
+  return name;
+}
+
 // age of the specified date object in minutes
 function getAgeMinutes(date) {
   return (Date.now() - date) / 1000 / 60;
 }
 
-// converts str of numbers to an array of qualified numbers 
+// converts str of numbers to an array of qualified numbers
 function convertNumbers(str) {
   let numbers = str.split(',');
   numbers = numbers.map(number => number.trim().replace(/[^0-9]/gi, ''));
