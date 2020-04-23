@@ -93,7 +93,7 @@ app.post('/sms', async (req, res) => {
             } else {
               await updateStatus(status.number, status.action, rooms[0]._id);
               twiml.message('Who do you want to remove from ' + rooms[0].name
-              + '? \nThe current memebers are: ' + rooms[0].members.map(member => member.number.substring(2)).join(', ') + backMessage);
+              + '? \nThe current members are: ' + rooms[0].members.map(member => member.number.substring(2)).join(', ') + backMessage);
             }
           } else {
             let numbers = convertNumbers(text);
@@ -165,7 +165,7 @@ app.post('/sms', async (req, res) => {
           out = "You're in " + memberRooms.length + " rooms" + "\n\n";
           for (let i = 0; i < memberRooms.length; i++) {
             out += "Room: " + memberRooms[i].name + "\n";
-            out += "Memebers: " + memberRooms[i].members.map(member => member.number).join(', ') + "\n";
+            out += "Members: " + memberRooms[i].members.map(member => member.number).join(', ') + "\n";
             out += "Pending invites: " + memberRooms[i].pendings.join(', ') + "\n\n";
           }
           twiml.message(out);
@@ -191,7 +191,7 @@ app.post('/sms', async (req, res) => {
           } else if (memberRooms.length == 1) {
             updateStatus(req.body.From, 'removing', memberRooms[0]._id);
             twiml.message('Who do you want to remove from ' + memberRooms[0].name
-              + '? \nThe current memebers are: ' + memberRooms[0].members.map(member => member.number.substring(2)).join(', ') + backMessage);
+              + '? \nThe current members are: ' + memberRooms[0].members.map(member => member.number.substring(2)).join(', ') + backMessage);
           } else { // memeberRooms == 0
             updateStatus(req.body.From, null, null);
             twiml.message("You're not in any rooms. Text 'create' to create one or 'accept' to accept an invite.");
