@@ -29,6 +29,7 @@ require('./models');
 Room = mongoose.model('Room');
 Status = mongoose.model('Status');
 Event = mongoose.model('Event');
+Counter = mongoose.model('Counter');
 
 
 app.post('/sms', async (req, res) => {
@@ -353,7 +354,13 @@ function markMeetingLinkSent(room, member){
 
 //returns the zoom_link of a meeting
 async function makeMeeting() {
-  const email = 'piyushgk1@gmail.com';
+  //rotate around the emails used so multiple meetings can happen concurrently
+  const emailCounter = (await Counter.find({name:'email'}))[0];
+  const emails = ['piyushgk1@gmail.com','guymontag314@gmail.com', 'piyush@trueshape.io','trueshapeio@gmail.com'];
+  const email = emails[emailCounter.value];
+  emailCounter.value = (emailCounter.value + 1) % emails.length;
+  emailCounter.save();
+
   var options = {
     url: 'https://api.zoom.us/v2/users/' + email + '/meetings',
     method: 'POST',
@@ -470,5 +477,14 @@ async function removeMembers(room_id, numbers) {
   room.save();
   return room;
 }
+
+async function test(){
+  // Counter({
+  //   name: 'email',
+  //   value: 0
+  // }).save();
+  console.log(await makeMeeting());
+}
+test();
 
 app.listen(port, () => console.log(`LivingRoom listening on port ${port}!`));

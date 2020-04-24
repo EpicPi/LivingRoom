@@ -1,3 +1,4 @@
 require('./room.js');
 require('./status.js');
-require('./event');
+require('./event.js');
+require('./counter.js');
